@@ -94,9 +94,24 @@ class Card:
         return "{suit}_{rank}".format(suit=self.suit_str(), rank=self.rank_str())
 
 
+def compare_hand(hand1, hand2):
+    """
+    Compares two 5-card poker hands to see which is the better of the two
+
+    :param hand1:
+    :type hand1: list
+    :param hand2:
+    :type hand2: list
+    :return: ``hand1`` if ``hand1`` is better than ``hand2``, ``hand2`` if ``hand2`` is
+        better than ``hand1`` or both if they are equally strong
+    :rtype: list
+    """
+    pass
+
+
 def main():
     opt_parser = OptionParser(
-        description="Simulates games of texas hold 'em to see how they would play out",
+        description="Simulates games of texas hold'em to see how they would play out",
         version=VERSION)
     opt_parser.add_option("-p", "--players", type='int', metavar="NUM_PLAYERS",
                           default=9, help="Specifies the number of players being dealt in [default: %default]")
@@ -111,6 +126,9 @@ def main():
 
     # Construct deck
     deck = [Card(i) for i in range(52)]
+
+    def calc_winners(hole_cards, community):
+        pass
 
     def play_game():
         nonlocal deck
@@ -131,11 +149,13 @@ def main():
         community.append(deck.pop(0))
         burn.append(deck.pop(0))
         community.append(deck.pop(0))
+        winning_hands = calc_winners(hole_cards, community)
         if options.output:
             with open(options.output, mode='w', encoding='utf-8') as outfile:
                 writer = csv.writer(outfile)
                 row = ["{},{}".format(hand[0], hand[1]) for hand in hole_cards]
                 row.insert(0, ','.join(map(str, community)))
+                row.insert(0, ','.join(map(str, winning_hands)))
                 writer.writerow(row)
         else:
             print([(str(hand[0]), str(hand[1])) for hand in hole_cards])
