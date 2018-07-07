@@ -6,14 +6,13 @@ Simulates many games of poker for statistical purposes.
 author: Jason R. Carrete
 """
 
-import sys
-import os
 import csv
 from random import shuffle
 from optparse import OptionParser
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 LONG_STR = False
+
 
 class Card:
     """
@@ -86,7 +85,7 @@ class Card:
         return self.value
 
     def __str__(self):
-        if sys.stdout.encoding == 'UTF-8' and not LONG_STR:
+        if not LONG_STR:
             return "{rank}{suit}".format(rank=self.short_rank_str(), suit=self.unicode_suit())
         else:
             return "{rank} of {suit}".format(rank=self.rank_str(), suit=self.suit_str())
