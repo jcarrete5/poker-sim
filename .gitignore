@@ -1,0 +1,8 @@
+# Virtualenv
+venv/
+
+# IntelliJ IDEA
+.idea/**/workspace.xml
+
+# Output Files
+*.csv
