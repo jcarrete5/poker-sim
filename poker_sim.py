@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Simulates many games of poker for statistical purposes.
+Simulates games of poker for statistical purposes.
 
 author: Jason R. Carrete
 """
@@ -21,6 +21,7 @@ def static_vars(**kwargs):
         for k in kwargs:
             setattr(func, k, kwargs[k])
         return func
+
     return decorate
 
 
@@ -83,6 +84,11 @@ class Rank(OrderedEnum):
     KING = auto()
     ACE = auto()
 
+    def __sub__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value - other.value
+        return NotImplemented
+
     def __str__(self):
         if LONG_STR:
             return self.name.lower()
@@ -121,6 +127,10 @@ class Card:
         self._suit = Suit(value % 4)
         self._rank = Rank(value // 4 + 2)
 
+    @staticmethod
+    def rank_key(card):
+        return card.rank.value
+
     @property
     def suit(self):
         return self._suit
@@ -152,11 +162,13 @@ class Card:
 
 
 @static_vars(HIGH=0, PAIR=1000000, TWO_PAIR=2000000, SET=3000000, STRAIGHT=4000000, FLUSH=5000000,
-             FULL=6000000, FOUR=7000000, STRAIGHT_FLUSH=8000000, ROYAL=9000000)
+             FULL=6000000, FOUR=7000000, STRAIGHT_FLUSH=8000000, ROYAL=9000000, K=14)
 def value_hand(hand):
     """
     Gives the hand a score based on how strong it is. Higher scores
     mean stronger hands. Hands must contain 5 cards.
+
+    Helpful link for ranking hands http://www.mathcs.emory.edu/~cheung/Courses/170/Syllabus/10/pokerValue.html
 
     :param hand: The hand being scored
     :type hand: list
@@ -165,44 +177,66 @@ def value_hand(hand):
     """
     assert len(hand) == 5
     score = 0
-    hand = sorted(hand, reverse=True)
-    min_card, max_card = min(hand), max(hand)
+    hand = sorted(hand, key=Card.rank_key, reverse=True)
     suits_in_hand = set(card.suit for card in hand)
     ranks_in_hand = set(card.rank for card in hand)
 
     def is_straight():
-        """
-        Determines if the hand is a straight
-
-        :return: The kicker for the straight or -1 if there is no straight
-        :rtype: int
-        """
-        min_rank, max_rank = min_card.rank, max_card.rank
-        if max_card.rank == 12 and min_card.rank == 0:
-            min_rank, max_rank = -1, hand[1].rank
+        min_rank, max_rank = hand[-1].rank, hand[0].rank
+        if hand[0].rank is Rank.ACE and hand[-1].rank is Rank.TWO:
+            min_rank, max_rank = 1, hand[1].rank
         return len(ranks_in_hand) == 5 and max_rank - min_rank == 4
 
     # Check pair hands (pair, full house, ...)
     counter = Counter(card.rank for card in hand)
-    most_common = counter.most_common(2)
-    if most_common[0][1] == 3 and most_common[1][1] == 2:
-        score = value_hand.FULL
-    elif most_common[0][1] == 2 and most_common[1][1] == 2:
-        score = value_hand.TWO_PAIR
-    elif most_common[0][1] == 3 and most_common[1][1] == 1:
-        score = value_hand.SET
-    elif most_common[0][1] == 2 and most_common[1][1] == 1:
-        score = value_hand.PAIR
-    elif most_common[0][1] == 4 and most_common[1][1] == 1:
-        score = value_hand.FOUR
+    counts = counter.most_common(2)
+    if counts[0][1] == 3 and counts[1][1] == 2:
+        score = value_hand.FULL\
+            + value_hand.K * counts[0][0].value\
+            + counts[1][0].value
+    elif counts[0][1] == 2 and counts[1][1] == 2:
+        high_pair_value = max(counts[0][0].value, counts[1][0].value)
+        low_pair_value = min(counts[0][0].value, counts[1][0].value)
+        score = value_hand.TWO_PAIR\
+            + value_hand.K**2 * high_pair_value\
+            + value_hand.K * low_pair_value\
+            + counts[2][0].value
+    elif counts[0][1] == 3 and counts[1][1] == 1:
+        high_kicker_value = max(counts[1][0].value, counts[2][0].value)
+        low_kicker_value = min(counts[1][0].value, counts[2][0].value)
+        score = value_hand.SET\
+            + value_hand.K**2 * counts[0][0].value\
+            + value_hand.K * high_kicker_value\
+            + low_kicker_value
+    elif counts[0][1] == 2 and counts[1][1] == 1:
+        kickers = sorted(ranks_in_hand - set(counts[0][0]), reverse=True)
+        score = value_hand.PAIR\
+            + value_hand.K**3 * counts[0][0].value\
+            + value_hand.K**2 * kickers[0].value\
+            + value_hand.K * kickers[1].value\
+            + kickers[2].value
+    elif counts[0][1] == 4 and counts[1][1] == 1:
+        score = value_hand.FOUR\
+            + value_hand.K * counts[0][0].value\
+            + counts[1][0].value
     # Check for flush
-    score = value_hand.FLUSH if len(suits_in_hand) == 1 and score < value_hand.FLUSH else score
-    if score < value_hand.FLUSH:
-        # Check for straight
+    if len(suits_in_hand) == 1 and score < value_hand.FLUSH:
+        score = value_hand.FLUSH
+        # Check for straight_flush
         if is_straight():
-            score = value_hand.STRAIGHT
-    elif is_straight():  # Check for straight flush
-        score = value_hand.STRAIGHT_FLUSH
+            score = value_hand.STRAIGHT_FLUSH
+            # Check for royal flush
+            if min(ranks_in_hand) is Rank.TEN:
+                score = value_hand.ROYAL
+            else:
+                score += Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand)
+        else:
+            score += sum(14**i * hand[-(i + 1)] for i in range(len(hand) - 1, -1, -1))
+    elif is_straight():  # Check for straight
+        score = value_hand.STRAIGHT + Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand)
+    elif score < value_hand.PAIR:
+        # High card is best hand
+        score = sum(14**i * hand[-(i + 1)] for i in range(len(hand) - 1, -1, -1))
     return score
 
 
@@ -244,16 +278,17 @@ def main():
         deck.pop(0)  # Burn
         community.append(deck.pop(0))
         # Get winning hands
-        winners = calc_winners(hole_cards, community)
+        # winners = calc_winners(hole_cards, community)
         # Write result of the game
         if options.output:
             with open(options.output, mode='w', encoding='utf-8') as outfile:
                 writer = csv.writer(outfile)
                 row = ["{},{}".format(hand[0], hand[1]) for hand in hole_cards]
                 row.insert(0, ','.join(map(str, community)))
-                row.insert(0, ','.join(map(str, winners)))
+                # row.insert(0, ','.join(map(str, winners)))
                 writer.writerow(row)
         else:
+            print(list(map(str, community)), end=' - ')
             print([(str(hand[0]), str(hand[1])) for hand in hole_cards])
 
     for _ in range(options.simulations):
