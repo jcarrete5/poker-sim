@@ -1,3 +1,6 @@
+# Python
+__pycache__
+
 # Virtualenv
 venv/
 
@@ -6,3 +9,6 @@ venv/
 
 # Output Files
 *.csv
+
+# MacOS
+**/.DS_Store

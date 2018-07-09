@@ -7,6 +7,7 @@ author: Jason R. Carrete
 """
 
 import csv
+from functools import total_ordering
 from enum import Enum, auto, unique
 from collections import Counter
 from random import shuffle
@@ -23,28 +24,6 @@ def static_vars(**kwargs):
         return func
 
     return decorate
-
-
-class OrderedEnum(Enum):
-    def __ge__(self, other):
-        if self.__class__ is other.__class__:
-            return self.value >= other.value
-        return NotImplemented
-
-    def __gt__(self, other):
-        if self.__class__ is other.__class__:
-            return self.value > other.value
-        return NotImplemented
-
-    def __le__(self, other):
-        if self.__class__ is other.__class__:
-            return self.value <= other.value
-        return NotImplemented
-
-    def __lt__(self, other):
-        if self.__class__ is other.__class__:
-            return self.value < other.value
-        return NotImplemented
 
 
 @unique
@@ -68,8 +47,9 @@ class Suit(Enum):
                 return '♦'
 
 
+@total_ordering
 @unique
-class Rank(OrderedEnum):
+class Rank(Enum):
     TWO = 2
     THREE = auto()
     FOUR = auto()
@@ -85,31 +65,27 @@ class Rank(OrderedEnum):
     ACE = auto()
 
     def __sub__(self, other):
+        return int(self) - int(other)
+
+    def __hash__(self):
+        return 13 * self.value
+
+    def __eq__(self, other):
         if self.__class__ is other.__class__:
-            return self.value - other.value
+            return int(self) == int(other)
         return NotImplemented
+
+    def __lt__(self, other):
+        return int(self) < int(other)
+
+    def __int__(self):
+        return self.value
 
     def __str__(self):
         if LONG_STR:
             return self.name.lower()
         else:
-            if self is Rank.TWO:
-                return '2'
-            elif self is Rank.THREE:
-                return '3'
-            elif self is Rank.FOUR:
-                return '4'
-            elif self is Rank.FIVE:
-                return '5'
-            elif self is Rank.SIX:
-                return '6'
-            elif self is Rank.SEVEN:
-                return '7'
-            elif self is Rank.EIGHT:
-                return '8'
-            elif self is Rank.NINE:
-                return '9'
-            elif self is Rank.TEN:
+            if self is Rank.TEN:
                 return 'T'
             elif self is Rank.JACK:
                 return 'J'
@@ -119,17 +95,22 @@ class Rank(OrderedEnum):
                 return 'K'
             elif self is Rank.ACE:
                 return 'A'
+            else:
+                return str(self.value)
 
 
+@total_ordering
 class Card:
-    def __init__(self, value):
-        self._value = value
-        self._suit = Suit(value % 4)
-        self._rank = Rank(value // 4 + 2)
-
-    @staticmethod
-    def rank_key(card):
-        return card.rank.value
+    @static_vars(card_pool={})
+    def __new__(cls, suit, rank):
+        if (suit, rank) in Card.__new__.card_pool:
+            return Card.__new__.card_pool[(suit, rank)]
+        else:
+            card = super().__new__(cls)
+            card._suit = suit
+            card._rank = rank
+            Card.__new__.card_pool[(suit, rank)] = card
+            return card
 
     @property
     def suit(self):
@@ -139,22 +120,19 @@ class Card:
     def rank(self):
         return self._rank
 
-    @property
-    def value(self):
-        return self._value
-
     def __hash__(self):
-        return 13 * self.value
+        return self.suit.value * 13 + self.rank.value * 97
+
+    def __int__(self):
+        return self.rank.value
 
     def __eq__(self, other):
         if self.__class__ is other.__class__:
-            return self.value == other.value
+            return self.suit is other.suit and self.rank is other.rank
         return NotImplemented
 
-    def __ne__(self, other):
-        if self.__class__ is other.__class__:
-            return self.value != other.value
-        return NotImplemented
+    def __lt__(self, other):
+        return int(self) < int(other)
 
     def __str__(self):
         fmt_str = "{rank} of {suit}" if LONG_STR else "{rank}{suit}"
@@ -260,7 +238,7 @@ def main():
 
     def play_game():
         # Construct deck
-        deck = [Card(i) for i in range(52)]
+        deck = [Card(suit, rank) for suit in Suit for rank in Rank]
         shuffle(deck)
         hole_cards = [[] for _ in range(options.players)]
         # Deal cards to players
