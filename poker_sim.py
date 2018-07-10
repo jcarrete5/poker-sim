@@ -204,11 +204,12 @@ def value_hand(hand):
             if min(ranks_in_hand) is Rank.TEN:
                 score = value_hand.ROYAL
             else:
-                score += Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand)
+                score += Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand).value
         else:
             score += sum(14**i * hand[i] for i in range(len(hand)))
     elif is_straight():  # Check for straight
-        score = value_hand.STRAIGHT + Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand)
+        score = value_hand.STRAIGHT\
+                + Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand).value
     elif score < value_hand.PAIR:
         # High card is best hand
         score = sum(14**i * hand[i] for i in range(len(hand)))
