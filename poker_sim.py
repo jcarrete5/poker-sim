@@ -9,7 +9,7 @@ author: Jason R. Carrete
 import csv
 from functools import total_ordering
 from enum import Enum, auto, unique
-from collections import Counter
+from collections import Counter, namedtuple
 from random import shuffle
 from optparse import OptionParser
 
@@ -64,22 +64,18 @@ class Rank(Enum):
     KING = auto()
     ACE = auto()
 
-    def __sub__(self, other):
-        return int(self) - int(other)
-
     def __hash__(self):
         return 13 * self.value
 
     def __eq__(self, other):
         if self.__class__ is other.__class__:
-            return int(self) == int(other)
+            return self.value == other.value
         return NotImplemented
 
     def __lt__(self, other):
-        return int(self) < int(other)
-
-    def __int__(self):
-        return self.value
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
 
     def __str__(self):
         if LONG_STR:
@@ -123,16 +119,15 @@ class Card:
     def __hash__(self):
         return self.suit.value * 13 + self.rank.value * 97
 
-    def __int__(self):
-        return self.rank.value
-
     def __eq__(self, other):
         if self.__class__ is other.__class__:
             return self.suit is other.suit and self.rank is other.rank
         return NotImplemented
 
     def __lt__(self, other):
-        return int(self) < int(other)
+        if self.__class__ is other.__class__:
+            return self.rank < other.rank
+        return NotImplemented
 
     def __str__(self):
         fmt_str = "{rank} of {suit}" if LONG_STR else "{rank}{suit}"
@@ -155,51 +150,53 @@ def value_hand(hand):
     """
     assert len(hand) == 5
     score = 0
-    hand = sorted(hand, key=Card.rank_key, reverse=True)
+    hand = sorted(hand)
     suits_in_hand = set(card.suit for card in hand)
     ranks_in_hand = set(card.rank for card in hand)
 
     def is_straight():
-        min_rank, max_rank = hand[-1].rank, hand[0].rank
-        if hand[0].rank is Rank.ACE and hand[-1].rank is Rank.TWO:
-            min_rank, max_rank = 1, hand[1].rank
-        return len(ranks_in_hand) == 5 and max_rank - min_rank == 4
+        if len(ranks_in_hand) < 5: return False
+        max_rank_value, min_rank_value = hand[-1].rank.value, hand[0].rank.value
+        if {Rank.TWO, Rank.ACE} < ranks_in_hand:
+            max_rank_value, min_rank_value = hand[-2].value, Rank.TWO.value - 1
+        return len(ranks_in_hand) == 5 and max_rank_value - min_rank_value == 4
 
     # Check pair hands (pair, full house, ...)
     counter = Counter(card.rank for card in hand)
-    counts = counter.most_common(2)
-    if counts[0][1] == 3 and counts[1][1] == 2:
+    RankCount = namedtuple('RankCount', 'rank, count')
+    rank_counts = [RankCount(e[0], e[1]) for e in counter.most_common()]
+    if rank_counts[0].count == 3 and rank_counts[1].count == 2:  # Full house
         score = value_hand.FULL\
-            + value_hand.K * counts[0][0].value\
-            + counts[1][0].value
-    elif counts[0][1] == 2 and counts[1][1] == 2:
-        high_pair_value = max(counts[0][0].value, counts[1][0].value)
-        low_pair_value = min(counts[0][0].value, counts[1][0].value)
+            + value_hand.K * rank_counts[0].rank.value\
+            + rank_counts[1].rank.value
+    elif rank_counts[0].count == 2 and rank_counts[1].count == 2:  # Two pair
+        high_pair_value = max(rank_counts[0].rank.value, rank_counts[1].rank.value)
+        low_pair_value = min(rank_counts[0].rank.value, rank_counts[1].rank.value)
         score = value_hand.TWO_PAIR\
             + value_hand.K**2 * high_pair_value\
             + value_hand.K * low_pair_value\
-            + counts[2][0].value
-    elif counts[0][1] == 3 and counts[1][1] == 1:
-        high_kicker_value = max(counts[1][0].value, counts[2][0].value)
-        low_kicker_value = min(counts[1][0].value, counts[2][0].value)
+            + rank_counts[2].rank.value
+    elif rank_counts[0].count == 3 and rank_counts[1].count == 1:  # Three of a kind
+        high_kicker_value = max(rank_counts[1].rank.value, rank_counts[2].rank.value)
+        low_kicker_value = min(rank_counts[1].rank.value, rank_counts[2].rank.value)
         score = value_hand.SET\
-            + value_hand.K**2 * counts[0][0].value\
+            + value_hand.K**2 * rank_counts[0].rank.value\
             + value_hand.K * high_kicker_value\
             + low_kicker_value
-    elif counts[0][1] == 2 and counts[1][1] == 1:
-        kickers = sorted(ranks_in_hand - set(counts[0][0]), reverse=True)
+    elif rank_counts[0].count == 2 and rank_counts[1].count == 1:  # One pair
+        kickers = sorted(ranks_in_hand - set(rank_counts[0].rank), reverse=True)
         score = value_hand.PAIR\
-            + value_hand.K**3 * counts[0][0].value\
+            + value_hand.K**3 * rank_counts[0].rank.value\
             + value_hand.K**2 * kickers[0].value\
             + value_hand.K * kickers[1].value\
             + kickers[2].value
-    elif counts[0][1] == 4 and counts[1][1] == 1:
+    elif rank_counts[0].count == 4 and rank_counts[1].count == 1:  # Four of a kind
         score = value_hand.FOUR\
-            + value_hand.K * counts[0][0].value\
-            + counts[1][0].value
+            + value_hand.K * rank_counts[0].rank.value\
+            + rank_counts[1].rank.value
     # Check for flush
-    if len(suits_in_hand) == 1 and score < value_hand.FLUSH:
-        score = value_hand.FLUSH
+    if len(suits_in_hand) == 1:
+        score = max(value_hand.FLUSH, score)
         # Check for straight_flush
         if is_straight():
             score = value_hand.STRAIGHT_FLUSH
@@ -209,12 +206,12 @@ def value_hand(hand):
             else:
                 score += Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand)
         else:
-            score += sum(14**i * hand[-(i + 1)] for i in range(len(hand) - 1, -1, -1))
+            score += sum(14**i * hand[i] for i in range(len(hand)))
     elif is_straight():  # Check for straight
         score = value_hand.STRAIGHT + Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand)
     elif score < value_hand.PAIR:
         # High card is best hand
-        score = sum(14**i * hand[-(i + 1)] for i in range(len(hand) - 1, -1, -1))
+        score = sum(14**i * hand[i] for i in range(len(hand)))
     return score
 
 
