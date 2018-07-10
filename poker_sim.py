@@ -159,7 +159,7 @@ def value_hand(hand):
             return False
         max_rank_value, min_rank_value = hand[-1].rank.value, hand[0].rank.value
         if {Rank.TWO, Rank.ACE} < ranks_in_hand:
-            max_rank_value, min_rank_value = hand[-2].value, Rank.TWO.value - 1
+            max_rank_value, min_rank_value = hand[-2].rank.value, Rank.TWO.value - 1
         return len(ranks_in_hand) == 5 and max_rank_value - min_rank_value == 4
 
     # Check pair hands (pair, full house, ...)

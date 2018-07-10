@@ -105,6 +105,25 @@ class ValueHandTestCase(TestCase):
         ]
         self.assertEqual(value_hand(hand), 9000000)
 
+    def test_straight_five_high_valuation(self):
+        hand = [
+            Card(Suit.SPADES, Rank.ACE),
+            Card(Suit.HEARTS, Rank.FIVE),
+            Card(Suit.HEARTS, Rank.FOUR),
+            Card(Suit.HEARTS, Rank.TWO),
+            Card(Suit.HEARTS, Rank.THREE)
+        ]
+        self.assertEqual(value_hand(hand), 4000005)
+        hand = [
+            Card(Suit.HEARTS, Rank.ACE),
+            Card(Suit.HEARTS, Rank.FIVE),
+            Card(Suit.HEARTS, Rank.FOUR),
+            Card(Suit.HEARTS, Rank.TWO),
+            Card(Suit.HEARTS, Rank.THREE)
+        ]
+        self.assertEqual(value_hand(hand), 8000005)
+
+
 
 if __name__ == '__main__':
     main()
