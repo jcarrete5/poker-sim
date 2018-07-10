@@ -155,7 +155,8 @@ def value_hand(hand):
     ranks_in_hand = set(card.rank for card in hand)
 
     def is_straight():
-        if len(ranks_in_hand) < 5: return False
+        if len(ranks_in_hand) < 5:
+            return False
         max_rank_value, min_rank_value = hand[-1].rank.value, hand[0].rank.value
         if {Rank.TWO, Rank.ACE} < ranks_in_hand:
             max_rank_value, min_rank_value = hand[-2].value, Rank.TWO.value - 1
@@ -184,7 +185,7 @@ def value_hand(hand):
             + value_hand.K * high_kicker_value\
             + low_kicker_value
     elif rank_counts[0].count == 2 and rank_counts[1].count == 1:  # One pair
-        kickers = sorted(ranks_in_hand - set(rank_counts[0].rank), reverse=True)
+        kickers = sorted(ranks_in_hand - {rank_counts[0].rank}, reverse=True)
         score = value_hand.PAIR\
             + value_hand.K**3 * rank_counts[0].rank.value\
             + value_hand.K**2 * kickers[0].value\
@@ -206,13 +207,13 @@ def value_hand(hand):
             else:
                 score += Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand).value
         else:
-            score += sum(14**i * hand[i] for i in range(len(hand)))
+            score += sum(14**i * hand[i].rank.value for i in range(len(hand)))
     elif is_straight():  # Check for straight
         score = value_hand.STRAIGHT\
-                + Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand).value
+                + (Rank.FIVE.value if {Rank.TWO, Rank.ACE} < ranks_in_hand else max(ranks_in_hand).value)
     elif score < value_hand.PAIR:
         # High card is best hand
-        score = sum(14**i * hand[i] for i in range(len(hand)))
+        score = sum(14**i * hand[i].rank.value for i in range(len(hand)))
     return score
 
 
