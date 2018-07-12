@@ -8,6 +8,7 @@ author: Jason R. Carrete
 
 import csv
 from functools import total_ordering
+from itertools import combinations
 from enum import Enum, auto, unique
 from collections import Counter, namedtuple
 from random import shuffle
@@ -144,7 +145,6 @@ def value_hand(hand):
     Helpful link for ranking hands http://www.mathcs.emory.edu/~cheung/Courses/170/Syllabus/10/pokerValue.html
 
     :param hand: The hand being scored
-    :type hand: list
     :return: The score of the hand
     :rtype: int
     """
@@ -217,7 +217,22 @@ def value_hand(hand):
     return score
 
 
+def best_five_card_hand(card_list):
+    return max(({'five_card_hand': c, 'value': value_hand(c)} for c in combinations(card_list, 5)),
+               key=lambda x: x['value'])
+
+
+def winning_hands(hole_cards, community):
+    best_hands = [
+        {'hole_cards': player_hole_cards, **best_five_card_hand(player_hole_cards + community)}
+        for player_hole_cards in hole_cards
+    ]
+    best_hands.sort(key=lambda hand: hand['value'], reverse=True)
+    return [hand for hand in best_hands if hand['value'] == best_hands[0]['value']]
+
+
 def main():
+    # TODO switch to argparse
     opt_parser = OptionParser(
         description="Simulates games of texas hold'em to see how they would play out",
         version=VERSION)
@@ -231,9 +246,6 @@ def main():
     options, _ = opt_parser.parse_args()
     global LONG_STR
     LONG_STR = options.long
-
-    def calc_winners(hole_cards, community):
-        pass
 
     def play_game():
         # Construct deck
@@ -255,18 +267,19 @@ def main():
         deck.pop(0)  # Burn
         community.append(deck.pop(0))
         # Get winning hands
-        # winners = calc_winners(hole_cards, community)
+        winners = winning_hands(hole_cards, community)
         # Write result of the game
         if options.output:
-            with open(options.output, mode='w', encoding='utf-8') as outfile:
+            with open(options.output, mode='a', encoding='utf-8') as outfile:
                 writer = csv.writer(outfile)
                 row = ["{},{}".format(hand[0], hand[1]) for hand in hole_cards]
                 row.insert(0, ','.join(map(str, community)))
-                # row.insert(0, ','.join(map(str, winners)))
+                row.insert(0, ','.join(('[{},{}]'.format(*map(str, hand['hole_cards'])) for hand in winners)))
                 writer.writerow(row)
         else:
             print(list(map(str, community)), end=' - ')
             print([(str(hand[0]), str(hand[1])) for hand in hole_cards])
+            print("Winners: ", list(list(map(str, hand['hole_cards'])) for hand in winners))
 
     for _ in range(options.simulations):
         play_game()
