@@ -14,7 +14,7 @@ from collections import Counter, namedtuple
 from random import shuffle
 from optparse import OptionParser
 
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 LONG_STR = False  # Determines if string representations should be long rather than short
 
 
