@@ -270,11 +270,11 @@ def main():
         winners = winning_hands(hole_cards, community)
         # Write result of the game
         if options.output:
-            with open(options.output, mode='a', encoding='utf-8') as outfile:
+            with open(options.output, mode='a', encoding='utf-8', newline='\n') as outfile:
                 writer = csv.writer(outfile)
                 row = ["{},{}".format(hand[0], hand[1]) for hand in hole_cards]
                 row.insert(0, ','.join(map(str, community)))
-                row.insert(0, ','.join(('[{},{}]'.format(*map(str, hand['hole_cards'])) for hand in winners)))
+                row.insert(0, ';'.join(('{},{}'.format(*map(str, hand['hole_cards'])) for hand in winners)))
                 writer.writerow(row)
         else:
             print(list(map(str, community)), end=' - ')
