@@ -14,7 +14,7 @@ from collections import Counter, namedtuple
 from random import shuffle
 from optparse import OptionParser
 
-VERSION = '1.1.0'
+VERSION = '1.2.1'
 LONG_STR = False  # Determines if string representations should be long rather than short
 
 
@@ -272,14 +272,14 @@ def main():
         if options.output:
             with open(options.output, mode='a', encoding='utf-8', newline='\n') as outfile:
                 writer = csv.writer(outfile)
-                row = ["{},{}".format(hand[0], hand[1]) for hand in hole_cards]
-                row.insert(0, ','.join(map(str, community)))
-                row.insert(0, ';'.join(('{},{}'.format(*map(str, hand['hole_cards'])) for hand in winners)))
+                row = [",".join(map(str, sorted(hand))) for hand in hole_cards]
+                row.insert(0, ",".join(map(str, sorted(community))))
+                row.insert(0, ";".join((",".join(map(str, sorted(hand['hole_cards']))) for hand in winners)))
                 writer.writerow(row)
         else:
             print(list(map(str, community)), end=' - ')
             print([(str(hand[0]), str(hand[1])) for hand in hole_cards])
-            print("Winners: ", list(list(map(str, hand['hole_cards'])) for hand in winners))
+            print("Winners: ", list(list(map(str, sorted(hand['hole_cards']))) for hand in winners))
 
     for _ in range(options.simulations):
         play_game()
